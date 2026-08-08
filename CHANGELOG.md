@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.39] - 2026-08-09
+
+### 🎨 New Features
+
+- **Microsoft Lens (Turbo)** (`mflux-generate-lens`, `--model lens-turbo` / `lens`): first MLX-native implementation of the 3.8B dual-stream MMDiT with GPT-OSS 20B multi-layer text features and the FLUX.2 VAE, requested upstream in [#424](https://github.com/filipstrand/mflux/issues/424). The encoder is vendored from mlx-lm (no new dependency, bit-identical to the original) and captures the residual stream after blocks 5/11/17/23 under the frozen harmony template with the 97-token offset; the 48-block denoiser loads the community checkpoint at 1264/1264 tensor coverage with no mapping layer; components resolve from their three homes (Comfy-Org mirror, mlx-community conversion, klein VAE). ~0.1 s/step denoising at 512x512, 4 steps, CFG internalized (`--guidance`/`--negative-prompt` declared ignored, reported honestly by warnings and `mflux-capabilities`). Turbo only for now; seed-parity against the ComfyUI reference is the planned follow-up. (#61)
+
 ## [0.18.38] - 2026-08-08
 
 ### 🐛 Fixes

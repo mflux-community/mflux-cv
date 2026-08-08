@@ -15,7 +15,7 @@ pip install mflux-cv
 To track a specific tag instead, or to pick up work that has not been released yet:
 
 ```bash
-pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.38-CV
+pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.39-CV
 ```
 
 Wheels are also attached to every [Release](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
@@ -31,6 +31,15 @@ upstream commit is included and nothing is removed. Credit for the base project 
 goes to their authors.
 
 ## Changelog (on top of upstream 0.18.0)
+
+### 0.18.39-CV
+
+- **New model: Microsoft Lens Turbo** (`mflux-generate-lens`): the 3.8B MMDiT with GPT-OSS 20B
+  multi-layer text features and the FLUX.2 VAE, first MLX-native implementation
+  (upstream request [#424](https://github.com/filipstrand/mflux/issues/424)). 4 steps at
+  ~0.1 s/step (512x512), encoder vendored from mlx-lm with no new dependency, weights from the
+  community mirrors (the Microsoft originals were withdrawn). Turbo only; base Lens and
+  reference seed-parity are follow-ups.
 
 ### 0.18.38-CV
 
