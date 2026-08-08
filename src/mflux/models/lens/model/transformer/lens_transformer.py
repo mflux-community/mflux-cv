@@ -65,7 +65,6 @@ class LensTransformer(nn.Module):
         latent_height: int,  # patch-grid height (pixels / 16)
         latent_width: int,
     ) -> mx.array:
-        batch = hidden_states.shape[0]
         text_seq_len = encoder_layers.shape[1]
 
         hidden_states = self.img_in(hidden_states)
