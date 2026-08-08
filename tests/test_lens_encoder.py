@@ -19,11 +19,8 @@ from mflux.models.lens.model.text_encoder.lens_prompt_template import (
     render_lens_chat,
 )
 
-_CACHED_SNAPSHOTS = glob.glob(
-    os.path.expanduser(
-        "/Volumes/1TB-WD750-1/ai-models-overflow/hub/models--mlx-community--gpt-oss-20b-MXFP4-Q8/snapshots/*"
-    )
-)
+_HUB = os.environ.get("HF_HUB_CACHE", os.path.expanduser("~/.cache/huggingface/hub"))
+_CACHED_SNAPSHOTS = glob.glob(os.path.join(_HUB, "models--mlx-community--gpt-oss-20b-MXFP4-Q8", "snapshots", "*"))
 
 
 @pytest.mark.fast
@@ -37,7 +34,7 @@ class TestLensTemplate:
         assert rendered.endswith("<|start|>assistant<|channel|>final<|message|>")
         assert "<|start|>user<|message|>a cat<|end|>" in rendered
 
-    def test_offset_is_larger_than_any_reasonable_prefix_change(self):
+    def test_reference_constants_are_pinned(self):
         assert LENS_TXT_OFFSET == 97
         assert LENS_SELECTED_LAYERS == (5, 11, 17, 23)
 
@@ -45,6 +42,7 @@ class TestLensTemplate:
 @pytest.mark.fast
 class TestCaptureHiddenStates:
     def _tiny_model(self, layers=6):
+        mx.random.seed(0)
         args = GptOssModelArgs(
             num_hidden_layers=layers,
             hidden_size=64,
@@ -111,7 +109,7 @@ class TestLensEncoderParity:
             pytest.skip("reference features not present")
         ref = np.load(ref_path)
         encoder = LensGptOssEncoder(_CACHED_SNAPSHOTS[0])
-        features = encoder.encode(str(ref["prompt"]))
+        features = encoder.encode(ref["prompt"].item())
         ours = np.array(features.astype(mx.float32))
         theirs = ref["features"]
         assert ours.shape == theirs.shape

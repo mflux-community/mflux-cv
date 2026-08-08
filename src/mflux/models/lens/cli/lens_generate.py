@@ -34,6 +34,11 @@ def main():
         except ModelConfigError:
             if args.model_path is None:
                 raise
+        if model_config.model_name != ModelConfig.lens_turbo().model_name:
+            raise ModelConfigError(
+                f"'{args.model}' is not a Lens model; this CLI only accepts the lens aliases "
+                f"{ModelConfig.lens_turbo().aliases}."
+            )
 
     model = LensImage(
         model_config=model_config,

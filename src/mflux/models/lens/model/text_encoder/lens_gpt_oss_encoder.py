@@ -79,6 +79,10 @@ class LensGptOssEncoder:
                 mode=quantization.get("mode", "affine"),
                 class_predicate=class_predicate,
             )
+        # Feature extraction never reaches lm_head; dropping it and its weights
+        # saves ~1.2 GB (2880 x 201088 at bf16) per load.
+        self.model.lm_head = nn.Identity()
+        weights = {k: v for k, v in weights.items() if not k.startswith("lm_head.")}
         self.model.load_weights(list(weights.items()))
 
         from tokenizers import Tokenizer
@@ -87,10 +91,35 @@ class LensGptOssEncoder:
 
     def encode(self, prompt: str) -> mx.array:
         """Return stacked features [1, S, len(selected), hidden] for the prompt."""
-        rendered = render_lens_chat(prompt)
-        ids = self.tokenizer.encode(rendered, add_special_tokens=False).ids[:LENS_MAX_TOKENS]
+        ids = self._template_ids(prompt)
         input_ids = mx.array([ids])
 
         captured = capture_hidden_states(self.model, input_ids)
+        if any(c is None for c in captured):
+            raise ValueError(
+                f"selected layers {LENS_SELECTED_LAYERS} exceed the encoder depth; capture came back incomplete"
+            )
         stacked = mx.stack(captured, axis=2)  # [B, S, L, H]
         return stacked[:, LENS_TXT_OFFSET:]
+
+    def _template_ids(self, prompt: str) -> list[int]:
+        # Harmony control markers inside the prompt would forge template blocks
+        # and desynchronize the fixed 97-token offset; strip them.
+        for marker in ("<|start|>", "<|end|>", "<|message|>", "<|channel|>", "<|return|>"):
+            prompt = prompt.replace(marker, " ")
+
+        encode = lambda text: self.tokenizer.encode(text, add_special_tokens=False).ids  # noqa: E731
+        ids = encode(render_lens_chat(prompt))
+        if len(ids) <= LENS_MAX_TOKENS:
+            return ids
+
+        # Over-long prompt: truncating the RENDERED sequence would cut the fixed
+        # assistant tail and misalign the template. Truncate the prompt segment
+        # instead, keeping the frozen prefix and suffix intact.
+        empty = render_lens_chat("")
+        cut = empty.index("<|end|><|start|>assistant")
+        prefix_ids = encode(empty[:cut])  # system + developer + user header (the 97-token offset)
+        suffix_ids = encode(empty[cut:])  # user close + both assistant blocks
+        budget = LENS_MAX_TOKENS - len(prefix_ids) - len(suffix_ids)
+        prompt_ids = encode(prompt)[:budget]
+        return prefix_ids + prompt_ids + suffix_ids

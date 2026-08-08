@@ -39,7 +39,9 @@ class ModelArgs(BaseModelArgs):
 
 # These operators emulate particular methods in torch that don't exist in MLX natively
 def mlx_topk(a, k, axis=-1):
-    """MLX equivalent of torch.topk"""
+    """MLX equivalent of torch.topk. Unlike torch, the top-k values come back
+    unsorted (argpartition); the MoE router softmax-normalizes and scatters by
+    index, so ordering never matters here."""
     partitioned_indices = mx.argpartition(a, kth=-k, axis=axis)
     # Extract only the top k indices (last k elements after partition)
     top_k_indices = partitioned_indices[..., -k:]
@@ -133,10 +135,8 @@ class MLPBlock(nn.Module):
             bias=True,
         )
         self.router = nn.Linear(config.hidden_size, config.num_local_experts, bias=True)
-        self.sharding_group = None
 
     def __call__(self, x: mx.array) -> mx.array:
-        pass
 
         g = self.router(x)
         experts, indices = mlx_topk(g, k=self.num_experts_per_tok, axis=-1)
@@ -149,8 +149,6 @@ class MLPBlock(nn.Module):
 
         y = x.sum(axis=-2)
 
-        if self.sharding_group is not None:
-            y = mx.distributed.all_sum(y, group=self.sharding_group)
 
         return y
 
@@ -181,10 +179,9 @@ class GptOssMoeModel(nn.Module):
         super().__init__()
         self.embed_tokens = nn.Embedding(args.vocab_size, args.hidden_size)
         self.norm = nn.RMSNorm(args.hidden_size, args.rms_norm_eps)
-        self.layer_types = args.layer_types or [
-            "sliding_attention",
-            "full_attention",
-        ] * (args.num_hidden_layers // 2)
+        self.layer_types = args.layer_types or (
+            ["sliding_attention", "full_attention"] * ((args.num_hidden_layers + 1) // 2)
+        )[: args.num_hidden_layers]
         self.layers = [TransformerBlock(args) for _ in range(args.num_hidden_layers)]
         self.window_size = args.sliding_window
         self.swa_idx = self.layer_types.index("sliding_attention")

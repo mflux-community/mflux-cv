@@ -119,6 +119,8 @@ class LensImage:
     def _turbo_sigmas(self, image_seq_len: int, num_steps: int) -> list[float]:
         # FlowMatchEuler dynamic exponential shift, mu from the image sequence
         # length exactly as the reference scheduler config declares.
+        if num_steps < 1:
+            raise ValueError(f"num_inference_steps must be >= 1, got {num_steps}")
         mc = self.model_config
         mu = mc.sigma_base_shift + (mc.sigma_max_shift - mc.sigma_base_shift) * (
             image_seq_len - mc.sigma_base_seq_len
