@@ -1,6 +1,7 @@
 import mlx.core as mx
 import mlx.nn as nn
 
+from mflux.models.common.lora.layer.dense_weight import dense_weight, is_fp8_linear
 from mflux.models.common.lora.layer.fused_linear_lora_layer import FusedLoRALinear
 from mflux.models.common.lora.layer.linear_lokr_layer import LoKrLinear
 from mflux.models.common.lora.layer.linear_lora_layer import LoRALinear
@@ -11,16 +12,9 @@ class LoRABakeError(Exception):
 
 
 def _is_fp8_base(linear) -> bool:
-    # fp8 bases store raw uint8 codes in .weight plus a per-row weight_scale — a float delta
-    # CANNOT be folded into the codes directly (`merged.astype(uint8)` rounds it away). They
-    # are baked by dequantizing once and requantizing to MLX q8 (see _fold_fp8_delta_to_q8).
-    weight = getattr(linear, "weight", None)
-    return (
-        weight is not None
-        and weight.dtype == mx.uint8
-        and hasattr(linear, "weight_scale")
-        and not isinstance(linear, nn.QuantizedLinear)
-    )
+    # fp8 bases are baked by dequantizing once and requantizing to MLX q8
+    # (see _fold_fp8_delta_to_q8); the predicate lives with the shared decode.
+    return is_fp8_linear(linear)
 
 
 def _fold_fp8_delta_to_q8(base_linear, delta: mx.array) -> nn.Module:
@@ -143,18 +137,7 @@ class LoRASaver:
 
     @staticmethod
     def _dense_weight(linear: nn.Linear | nn.QuantizedLinear) -> mx.array:
-        if isinstance(linear, nn.QuantizedLinear):
-            return mx.dequantize(
-                linear.weight,
-                linear.scales,
-                biases=linear.biases,
-                group_size=linear.group_size,
-                bits=linear.bits,
-                mode=linear.mode,
-            )
-        if _is_fp8_base(linear):
-            return mx.from_fp8(linear.weight, dtype=mx.float32) * linear.weight_scale[:, None]
-        return linear.weight
+        return dense_weight(linear)
 
     @staticmethod
     def _bake_lora_into_linear(base_linear: nn.Linear | nn.QuantizedLinear, lora_layer: LoRALinear) -> nn.Module:

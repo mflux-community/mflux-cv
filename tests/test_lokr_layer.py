@@ -621,3 +621,25 @@ def test_saver_bakes_fused_lora_and_dora_lokr_at_weight_level():
 
     assert isinstance(transformer.proj, nn.Linear)
     assert mx.allclose(transformer.proj.weight, decomposed_weight)
+
+
+def test_lokr_dora_runtime_uses_decoded_fp8_base_weight():
+    # Regression: LoKrLinear._dense_base_weight returned Fp8Linear's raw uint8 codes, so a
+    # DoRA-scaled LoKr on the runtime (--no-bake-lora) path normalized against garbage.
+    from mflux.models.ideogram4.model.ideogram4_transformer.fp8_linear import Fp8Linear
+
+    mx.random.seed(0)
+    out_dims, in_dims = 8, 8
+    dense = mx.random.normal((out_dims, in_dims)).astype(mx.float32) * 0.02
+    scale = mx.max(mx.abs(dense), axis=1) / 448.0
+    base = Fp8Linear(in_dims, out_dims, bias=False)
+    base.weight = mx.to_fp8((dense / scale[:, None]).astype(mx.float32))
+    base.weight_scale = scale.astype(mx.float32)
+    decoded = mx.from_fp8(base.weight, dtype=mx.float32) * base.weight_scale[:, None]
+
+    lokr_w1 = mx.random.normal((2, 2)).astype(mx.float32) * 0.1
+    lokr_w2 = mx.random.normal((4, 4)).astype(mx.float32) * 0.1
+    dora_scale = mx.linalg.norm(decoded, axis=1)
+    lokr = LoKrLinear.from_linear(base, lokr_w1=lokr_w1, lokr_w2=lokr_w2, dora_scale=dora_scale)
+
+    assert mx.allclose(lokr.delta_weight(), lokr.delta_weight(base_weight=decoded), atol=1e-6)
