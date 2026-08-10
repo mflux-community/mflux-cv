@@ -3,6 +3,8 @@ import math
 import mlx.core as mx
 from mlx import nn
 
+from mflux.models.common.lora.layer.dense_weight import dense_weight
+
 
 class LoRALinear(nn.Module):
     @staticmethod
@@ -52,20 +54,7 @@ class LoRALinear(nn.Module):
 
     def _dense_base_weight(self) -> mx.array:
         # Materialize the frozen base weight (out, in), dequantizing / de-fp8-ing as needed.
-        linear = self.linear
-        if isinstance(linear, nn.QuantizedLinear):
-            return mx.dequantize(
-                linear.weight,
-                linear.scales,
-                biases=linear.biases,
-                group_size=linear.group_size,
-                bits=linear.bits,
-                mode=linear.mode,
-            )
-        # Ideogram's Fp8Linear stores raw fp8 + a per-output scale.
-        if hasattr(linear, "weight_scale"):
-            return mx.from_fp8(linear.weight, dtype=mx.float32) * linear.weight_scale[:, None]
-        return linear.weight
+        return dense_weight(self.linear)
 
     def delta_weight(self, base_weight: mx.array | None = None) -> mx.array:
         # Scaled LoRA weight delta (out, in). For DoRA, decompose the combined weight into a trained
