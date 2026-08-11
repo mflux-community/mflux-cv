@@ -1,9 +1,8 @@
 from pathlib import Path
 
-import PIL.Image
-
 from mflux.cli.defaults import defaults as ui_defaults
 from mflux.cli.defaults.defaults import DIMENSION_STEP_PIXELS
+from mflux.utils.exif_orientation import oriented_size
 from mflux.utils.scale_factor import ScaleFactor
 
 
@@ -32,9 +31,9 @@ class DimensionResolver:
             resolved_height = ui_defaults.HEIGHT if height_is_scale else int(height)
             return resolved_width, resolved_height
 
-        # Open image lazily - PIL.Image.open only reads metadata, not pixel data
-        with PIL.Image.open(reference_image_path) as orig_image:
-            orig_width, orig_height = orig_image.size
+        # Header-only read, and the displayed size rather than the stored one so these
+        # dimensions describe the same picture ImageUtil.load_image hands the model.
+        orig_width, orig_height = oriented_size(reference_image_path)
 
         # --- Aspect-ratio-preserving scale propagation ---
         # When only one dimension carries a non-unity ScaleFactor and the other

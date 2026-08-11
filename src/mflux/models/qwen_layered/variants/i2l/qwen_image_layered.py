@@ -16,6 +16,7 @@ from mflux.models.qwen_layered.model.qwen_layered_vae.qwen_layered_vae import Qw
 from mflux.models.qwen_layered.qwen_layered_initializer import QwenLayeredInitializer
 from mflux.models.qwen_layered.weights.qwen_layered_weight_definition import QwenLayeredWeightDefinition
 from mflux.utils.exceptions import StopImageGenerationException
+from mflux.utils.exif_orientation import open_oriented
 
 
 class QwenImageLayered(nn.Module):
@@ -68,7 +69,7 @@ class QwenImageLayered(nn.Module):
         Decompose an input image into N RGBA layers.
         """
         # Load and preprocess input image
-        input_image = Image.open(image_path).convert("RGBA")
+        input_image = open_oriented(image_path).convert("RGBA")
 
         # Resize to target resolution while maintaining aspect ratio
         width, height = self._compute_resolution(input_image.size, resolution)
