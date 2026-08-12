@@ -161,6 +161,48 @@ class TestPathResolutionHuggingFace:
         )
 
     @pytest.mark.fast
+    def test_incomplete_root_level_indexed_snapshot_is_not_complete(self, tmp_path):
+        # briaai/FIBO-vlm keeps its shards and its index at the snapshot root, so the
+        # no-subdirs branch has to read the index too. Without that, one cached shard
+        # matched *.safetensors and the interrupted download passed as complete.
+        snapshot = tmp_path / "snapshot"
+        snapshot.mkdir()
+        (snapshot / "model-00001-of-00002.safetensors").touch()
+        (snapshot / "model.safetensors.index.json").write_text(
+            json.dumps(
+                {
+                    "weight_map": {
+                        "layer.0.weight": "model-00001-of-00002.safetensors",
+                        "layer.1.weight": "model-00002-of-00002.safetensors",
+                    }
+                }
+            )
+        )
+        patterns = ["*.safetensors", "*.json"]
+
+        assert not PathResolution._is_snapshot_complete(snapshot, set(), patterns)
+
+        (snapshot / "model-00002-of-00002.safetensors").touch()
+        assert PathResolution._is_snapshot_complete(snapshot, set(), patterns)
+
+    @pytest.mark.fast
+    @pytest.mark.parametrize("contents", ["[]", "null", '"weight_map"'])
+    def test_an_index_that_is_not_an_object_is_not_complete(self, tmp_path, contents):
+        # Valid JSON that is not a mapping: reading weight_map off it raised
+        # AttributeError out of path resolution, which the handler does not catch.
+        snapshot = tmp_path / "snapshot"
+        text_encoder = snapshot / "text_encoder"
+        text_encoder.mkdir(parents=True)
+        (text_encoder / "model-00001-of-00002.safetensors").touch()
+        (text_encoder / "model.safetensors.index.json").write_text(contents)
+
+        assert not PathResolution._is_snapshot_complete(
+            snapshot,
+            {"text_encoder"},
+            ["text_encoder/*.safetensors"],
+        )
+
+    @pytest.mark.fast
     def test_partial_root_level_named_files_are_not_complete(self, tmp_path):
         snapshot = tmp_path / "snapshot"
         snapshot.mkdir()
