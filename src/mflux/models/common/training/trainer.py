@@ -5,6 +5,7 @@ import math
 import random
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import mlx.core as mx
 from mlx import nn
@@ -227,9 +228,9 @@ class TrainingTrainer:
                 continue
 
             # Gradient accumulation: average grads across accum_steps micro-batches and only step
-            # the optimizer on the window boundary, for an effective batch of batch_size *
-            # accum_steps. num_iterations counts micro-batches, so the boundary is every
-            # accum_steps of them; bookkeeping below still runs each iteration on valid weights.
+            # the optimizer when the window closes, for an effective batch of batch_size *
+            # accum_steps. The window counts valid micro-batches, so a skipped one extends it
+            # rather than closing it early; bookkeeping below still runs each iteration.
             at_step_boundary = True
             if accum_steps > 1:
                 grads, accumulated_count, at_step_boundary = TrainingTrainer._fold_into_window(
@@ -276,7 +277,7 @@ class TrainingTrainer:
         return tree_map(lambda p: mx.array(p), adapter.model().trainable_parameters())
 
     @staticmethod
-    def _fold_into_window(grads, accumulated, accum_steps: int, count: int):
+    def _fold_into_window(grads, accumulated, accum_steps: int, count: int) -> tuple[Any, int, bool]:
         """Fold one valid micro-batch into the accumulation window.
 
         The window closes after accum_steps VALID micro-batches rather than after
