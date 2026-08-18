@@ -1,36 +1,35 @@
 # mflux-CV
 
-A drop-in community build of [mflux](https://github.com/filipstrand/mflux) by Filip Strand (MIT). It
-stays current with upstream `main` and adds a curated set of fixes, training features, and useful
-community PRs, with prebuilt wheels on GitHub Releases so improvements are easy to pick up between
-upstream releases. The Python package is still `mflux` and every CLI keeps its name,
-so this is a direct replacement in ComfyUI, image-studio, or any existing setup.
+> **This build is retired. Development moved to
+> [mflux-community/mflux](https://github.com/mflux-community/mflux).**
 
-**Install**
-
-```bash
-pip install mflux-cv
-```
-
-To track a specific tag instead, or to pick up work that has not been released yet:
+mflux moved from a single-maintainer repo to its own organization in August 2026,
+and everything this build existed for now happens there: the fix queue moves,
+releases ship to PyPI on their own, and the fixes and models that debuted here
+have been merged. Install that instead:
 
 ```bash
-pip install git+https://github.com/HowDidTheCatGetSoFat/mflux-cv.git@v.0.18.39-CV
+pip uninstall mflux-cv
+pip install mflux
 ```
 
-Wheels are also attached to every [Release](https://github.com/HowDidTheCatGetSoFat/mflux-cv/releases).
+The last release here is 0.18.40-CV and there won't be more. It still carries a
+few things upstream doesn't have yet: Mage Flow
+([#483](https://github.com/mflux-community/mflux/pull/483) by @ivanfioravanti)
+and Qwen-Image-Layered
+([#302](https://github.com/mflux-community/mflux/pull/302) by @ZimengXiong),
+both still open upstream, plus the Krea 2 depth ControlNet and
+nvidia/Qwen-Image-Flash. If you need one of those, pin this build and watch
+those PRs.
 
-> **Install this or upstream `mflux`, never both.** The distribution is named `mflux-cv` so it can
-> live on PyPI alongside upstream, though both provide the same `mflux` import package. With both
-> installed, pip raises no error while the two overwrite each other's files, and uninstalling either
-> one leaves the other broken. Run `pip uninstall mflux` before installing this, and
-> `pip uninstall mflux-cv` before going back.
-
-**Relationship to upstream:** kept rebased on `filipstrand/mflux` so changes merge back cleanly. Every
-upstream commit is included and nothing is removed. Credit for the base project and every pulled PR
-goes to their authors.
+Everything below is kept as it was, for reference.
 
 ## Changelog (on top of upstream 0.18.0)
+
+### 0.18.40-CV
+
+- Final release: the retirement notice above, and the `Development Status :: Inactive`
+  classifier. No code changes.
 
 ### 0.18.39-CV
 
